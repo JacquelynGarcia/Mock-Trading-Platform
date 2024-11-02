@@ -18,18 +18,14 @@ from models import db, bcrypt, User, PortfolioHolding
 db.init_app(app)
 bcrypt.init_app(app)
 
-# setting up login manager
-login_manager = LoginManager(app)
-login_manager.login_view = 'login'
-
 # test
 @app.route('/')
 def home():
     return "Mock Trading Platform is up and running!"
 
-# run the app
-if __name__ == "__main__":
-    app.run(debug=True)
+# setting up login manager
+login_manager = LoginManager(app)
+login_manager.login_view = 'login'
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -81,3 +77,7 @@ def logout():
     logout_user()
     flash('You have been logged out.', 'info')
     return redirect(url_for('login'))
+
+# debugger
+if __name__ == "__main__":
+    app.run(debug=True)
