@@ -1,9 +1,8 @@
-from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
 from config import SQLALCHEMY_DATABASE_URI, SQLALCHEMY_TRACK_MODIFICATIONS, SECRET_KEY
-from flask import render_template, request, redirect, url_for, session, flash
-from werkzeug.security import generate_password_hash, check_password_hash
-from models import User
+from flask import Flask, render_template, request, redirect, url_for, flash
+from flask_sqlalchemy import SQLAlchemy
+from flask_bcrypt import Bcrypt
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 
 # intializing flask app
 app = Flask(__name__)
@@ -13,8 +12,15 @@ app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = SQLALCHEMY_TRACK_MODIFICATIONS
 app.config['SECRET_KEY'] = SECRET_KEY
 
-# initializing the database
-db = SQLAlchemy(app)
+from models import db, bcrypt, User, PortfolioHolding
+
+# initializing extensions
+db.init_app(app)
+bcrypt.init_app(app)
+
+# setting up login manager
+login_manager = LoginManager(app)
+login_manager.login_view = 'login'
 
 # test
 @app.route('/')
@@ -25,29 +31,29 @@ def home():
 if __name__ == "__main__":
     app.run(debug=True)
 
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
 # registration
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        username = request.form['username']
-        email = request.form['email']
-        password = request.form['password']
-
-        # hash password
-        password_hash = generate_password_hash(password)
+        username = request.form.get('username')
+        email = request.form.get('email')
+        password = request.form.get('password')
 
         # checking if user already exists
-        existing_user = User.query.filter_by(email=email).first()
-        if existing_user:
-            flash("Email already registered. Please log in.")
-            return redirect(url_for('login'))
+        if User.query.filter_by(email=email).first():
+            flash('Email is already registered', 'danger')
+            return redirect(url_for('register'))
         
         # create new user and add to database
-        new_user = User(username=username, email=email, password_hash=password_hash)
+        new_user = User(username=username, email=email)
+        new_user.set_password(password)
         db.session.add(new_user)
         db.session.commit()
-
-        flash("Registration successful! Please log in.")
+        flash('Registration successful! Please log in.', 'success')
         return redirect(url_for('login'))
     
     return render_template('register.html')
@@ -56,24 +62,22 @@ def register():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        email = request.form['email']
-        password = request.form['password']
+        email = request.form.get('email')
+        password = request.form.get('password')
+        user = User.query.filter_by(email=email).first()
 
         # check if user exists
-        user = User.query.filter_by(email=email).first()
-        if user and check_password_hash(user.password_hash, password):
-            session['user_id'] = user.id
-            flash("Login successful!")
+        if user and user.check_password(password):
+            login_user(user)
+            flash('Login successful!', 'success')
             return redirect(url_for('home'))
-        else:
-            flash("Invalid email or password. Please try again.")
-            return redirect(url_for('login'))
+        flash('Invalid email or password', 'danger')
     
     return render_template('login.html')
 
 # logging out
 @app.route('/logout')
 def logout():
-    session.pop('user_id', None)
-    flash("You have been logged out.")
+    logout_user()
+    flash('You have been logged out.', 'info')
     return redirect(url_for('login'))
