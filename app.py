@@ -81,3 +81,56 @@ def logout():
 # debugger
 if __name__ == "__main__":
     app.run(debug=True)
+
+import requests
+from flask import jsonify
+
+# helper function to fetch stock price
+def get_stock_price(symbol):
+    API_KEY = 'API_KEY'
+    url = f'https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol={symbol}&interval=1min&apikey={API_KEY}'
+    response = requests.get(url)
+    data = response.json()
+
+    # extracting latest price
+    try:
+        latest_time = list(data['Time Series (1min)'].keys())[0]
+        price = float(data['Time Series (1min)']['latest_time']['4. close'])
+        return price
+    except (KeyError, IndexError):
+        return None
+
+@app.route('/buy', methods=['POST'])
+@login_required
+def buy():
+    symbol = request.form.get('symbol')
+    quantity = int(request.form.get('quantity'))
+
+    # get current stock price
+    price = get_stock_price(symbol)
+    if price is None:
+        flash('Invalid stock symbol or unable to fetch price', 'danger')
+        return redirect(url_for('portfolio'))
+    
+    total_cost = price * quantity
+    user = current_user
+
+    # check if user has enough balance
+    if user.balance < total_cost:
+        flash('Insufficient balance to complete the purchase', 'danger')
+        return redirect(url_for('portfolio'))
+    
+    # update user balance and portfolio
+    user.balance -= total_cost
+    holding = PortfolioHolding.query.filter_by(user_id=user.id, symbol=symbol).firt()
+
+    if holding:
+        holding.quantity += quantity
+    else:
+        new_holding = PortfolioHolding(user_id=user.id, symbol=symbol, quanity=quantity, purchase_price=price)
+        db.session.add(new_holding)
+    
+    db.session.commit()
+    flash(f'Successfully bought {quantity} share of {symbol}, 'success')
+    
+    return redirect(url_for('portfolio'))
