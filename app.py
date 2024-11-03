@@ -73,6 +73,7 @@ def login():
 
 # logging out
 @app.route('/logout')
+@login_required
 def logout():
     logout_user()
     flash('You have been logged out.', 'info')
@@ -95,7 +96,7 @@ def get_stock_price(symbol):
     # extracting latest price
     try:
         latest_time = list(data['Time Series (1min)'].keys())[0]
-        price = float(data['Time Series (1min)']['latest_time']['4. close'])
+        price = float(data['Time Series (1min)'][latest_time]['4. close'])
         return price
     except (KeyError, IndexError):
         return None
@@ -122,15 +123,22 @@ def buy():
     
     # update user balance and portfolio
     user.balance -= total_cost
-    holding = PortfolioHolding.query.filter_by(user_id=user.id, symbol=symbol).firt()
+    holding = PortfolioHolding.query.filter_by(user_id=user.id, symbol=symbol).first()
 
     if holding:
         holding.quantity += quantity
     else:
-        new_holding = PortfolioHolding(user_id=user.id, symbol=symbol, quanity=quantity, purchase_price=price)
+        new_holding = PortfolioHolding(user_id=user.id, symbol=symbol, quantity=quantity, purchase_price=price)
         db.session.add(new_holding)
     
     db.session.commit()
-    flash(f'Successfully bought {quantity} share of {symbol}, 'success')
+    flash(f'Successfully bought {quantity} share of {symbol}', 'success')
     
     return redirect(url_for('portfolio'))
+
+@app.route('/portfolio')
+@login_required
+def portfolio():
+    user = current_user
+    holdings = PortfolioHolding.query.filter_by(user_id=user.id).all()
+    return render_template('portfolio.html', user=user, holdings=holdings)
