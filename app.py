@@ -79,10 +79,6 @@ def logout():
     flash('You have been logged out.', 'info')
     return redirect(url_for('login'))
 
-# debugger
-if __name__ == "__main__":
-    app.run(debug=True)
-
 import requests
 from flask import jsonify
 
@@ -142,3 +138,8 @@ def portfolio():
     user = current_user
     holdings = PortfolioHolding.query.filter_by(user_id=user.id).all()
     return render_template('portfolio.html', user=user, holdings=holdings)
+
+
+# debugger
+if __name__ == "__main__":
+    app.run(debug=True)
