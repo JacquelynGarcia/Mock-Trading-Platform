@@ -155,7 +155,7 @@ def sell():
     holding = PortfolioHolding.query.filter_by(user_id=user.id, symbol=symbol).first()
 
     # check if user owns the stock and has enough quantity to sell
-    if not holding or holding.quanity < quantity:
+    if not holding or holding.quantity < quantity:
         flash('Insufficient shares to complete the sale', 'danger')
         return redirect(url_for('portfolio'))
     
