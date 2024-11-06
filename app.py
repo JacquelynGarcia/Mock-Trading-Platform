@@ -91,11 +91,15 @@ def get_stock_price(symbol):
 
     # extracting latest price
     try:
-        latest_time = list(data['Time Series (1min)'].keys())[0]
-        price = float(data['Time Series (1min)'][latest_time]['4. close'])
-        return price
+        time_series = data['Time Series (Daily)']
+        dates = []
+        prices = []
+        for date, daily_data in time_series.items():
+            dates.append(date)
+            prices.append(float(daily_data['4. close']))
+        return dates, prices
     except (KeyError, IndexError):
-        return None
+        return [], []
 
 @app.route('/buy', methods=['POST'])
 @login_required
@@ -172,6 +176,21 @@ def sell():
     flash(f'Successfully sold {quantity} shares of {symbol}', 'success')
     return redirect(url_for('portfolio'))
 
+@app.route('/price-history/<symbol>')
+@login_required
+def price_history(symbol):
+    dates, prices = get_stock_price(symbol)
+    if not dates:
+        flash('Unable to retrieve price history', 'danger')
+        return redirect(url_for('portfolio'))
+    
+    # plotly graph
+    import plotly.graph_objs as go
+    fig = go.Figure(data=[go.Scatter(x=dates, y=prices, mode='lines', name=symbol)])
+    fig.update_layout(title=f'Price history for {symbol}', xaxis_title='Date', yaxis_title='Price (USD)')
+    graph_html = fig.to_html(full_html=False)
+
+    return render_template('price_history.html', symbol=symbol, graph_html=graph_html)
 
 # debugger
 if __name__ == "__main__":

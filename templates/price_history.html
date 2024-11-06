@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Price History</title>
+</head>
+<body>
+    <h1>Price History for {{ symbol }}</h1>
+    <div>{{ graph_html|safe }}</div>
+    <a href="{{ url_for('portfolio') }}">Back to Portfolio</a>
+</body>
+</html>
