@@ -139,6 +139,39 @@ def portfolio():
     holdings = PortfolioHolding.query.filter_by(user_id=user.id).all()
     return render_template('portfolio.html', user=user, holdings=holdings)
 
+@app.route('/sell', methods=['POST'])
+@login_required
+def sell():
+    symbol = request.form.get('symbol')
+    quantity = int(request.form.get('quantity'))
+
+    # fetch current stock price
+    price = get_stock_price(symbol)
+    if price is None:
+        flash('Invalid stock symbol or unable to fetch price', 'danger')
+        return redirect(url_for('portfolio'))
+    
+    user = current_user
+    holding = PortfolioHolding.query.filter_by(user_id=user.id, symbol=symbol).first()
+
+    # check if user owns the stock and has enough quantity to sell
+    if not holding or holding.quanity < quantity:
+        flash('Insufficient shares to complete the sale', 'danger')
+        return redirect(url_for('portfolio'))
+    
+    # calculate sale proceeds and update user's balance
+    total_sale_value = price * quantity
+    user.balance += total_sale_value
+    holding.quantity -= quantity
+
+    # remove the holding if quantity == 0
+    if holding.quantity == 0:
+        db.session.delete(holding)
+    
+    db.session.commit()
+    flash(f'Successfully sold {quantity} shares of {symbol}', 'success')
+    return redirect(url_for('portfolio'))
+
 
 # debugger
 if __name__ == "__main__":
